@@ -48,7 +48,7 @@ export const DELETE = async (
 
     if (imgsIDs.length === imgsCount.imgs.length) {
       return NextResponse.json(
-        { message: "you can't remove all product images" },
+        { message: "product must have at least one image" },
         { status: 400 }
       );
     }
