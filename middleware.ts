@@ -7,7 +7,9 @@ export async function middleware() {
   response.headers.set("Access-Control-Allow-Credentials", "true");
   response.headers.set(
     "Access-Control-Allow-Origin",
-    "https://ahmed-e-commerce.netlify.app"
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:5173"
+      : "https://ahmed-e-commerce.netlify.app"
   );
   response.headers.set(
     "Access-Control-Allow-Methods",
