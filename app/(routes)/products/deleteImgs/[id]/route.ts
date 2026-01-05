@@ -5,8 +5,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { deleteImg, validateToken } from "@/app/lib/utils";
 
 // cloudinary
-import { v2 as cloudinary } from "cloudinary";
 import Product from "@/app/lib/models/product";
+import { v2 as cloudinary } from "cloudinary";
 
 type Params = {
   id: string;
@@ -59,17 +59,7 @@ export const DELETE = async (
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    const results = (
-      await Promise.allSettled(imgsIDs.map((id: string) => deleteImg(id)))
-    )
-      .map((img) => {
-        if (img.status === "fulfilled" && img.value.result === "ok") {
-          return img.value.public_id;
-        }
-      })
-      .filter((result) => result);
-
-    console.log("results", results);
+    const results = await deleteImg(imgsIDs);
 
     const product = await Product.findByIdAndUpdate(id, {
       $pull: {
