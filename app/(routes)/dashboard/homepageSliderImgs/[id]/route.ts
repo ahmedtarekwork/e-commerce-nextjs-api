@@ -5,8 +5,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import homePageImgModel from "@/app/lib/models/homePageImgModel";
 
 // cloudinary
-import { v2 as cloudinary } from "cloudinary";
 import { deleteImg, validateToken } from "@/app/lib/utils";
+import { v2 as cloudinary } from "cloudinary";
 
 type Params = {
   id: string;
@@ -43,9 +43,9 @@ export const DELETE = async (
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    const result = (await deleteImg(id)) as { result: "ok" | "not found" };
+    const result = await deleteImg([id]);
 
-    if (result.result === "ok") {
+    if (result[0] === id) {
       await homePageImgModel.deleteOne({ public_id: id });
 
       return NextResponse.json({

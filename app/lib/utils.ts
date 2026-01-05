@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 // utils
-import connectDb from "./db";
 import { jwtVerify } from "jose";
+import connectDb from "./db";
 
 // models
 import User from "./models/user";
@@ -93,15 +93,16 @@ export const uploadImg = async (img: File, public_id?: string) => {
   });
 };
 
-export const deleteImg = async (public_id: string) => {
-  return new Promise((res, rej) => {
-    cloudinary.uploader.destroy(public_id, (err, resault) => {
-      if (err) {
-        rej(err);
-        return;
-      }
-
-      res({ ...resault, public_id });
-    });
+export const deleteImg = async (public_id: string[]) => {
+  const res = await cloudinary.api.delete_resources(public_id, {
+    type: "upload",
+    resource_type: "image",
   });
+
+  return (
+    Object.entries(res.deleted)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .filter(([_, value]) => value === "deleted")
+      .map(([key]) => key)
+  );
 };

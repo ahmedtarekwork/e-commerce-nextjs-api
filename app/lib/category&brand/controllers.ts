@@ -8,8 +8,8 @@ import Product from "../models/product";
 
 // utils
 import connectDb from "@/app/lib/db";
-import { deleteImg, uploadImg, validateToken } from "../utils";
 import { Types } from "mongoose";
+import { deleteImg, uploadImg, validateToken } from "../utils";
 
 // cloudinary
 import { v2 as cloudinary } from "cloudinary";
@@ -319,7 +319,7 @@ export const DELETE = async (
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    const promises = [deleteImg(model.image.public_id)];
+    const promises = [deleteImg([model.image.public_id])] as Promise<unknown>[];
 
     if (model.products.length) {
       promises.push(
@@ -338,7 +338,7 @@ export const DELETE = async (
         )
         .flat(Infinity);
 
-      promises.push(...productsImgs.map((img: string) => deleteImg(img)));
+      promises.push(...productsImgs.map((img: string) => deleteImg([img])));
     }
 
     await Promise.allSettled(promises);

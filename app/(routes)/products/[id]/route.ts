@@ -2,9 +2,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 // models
-import Product from "../../../lib/models/product";
-import categoryModel from "@/app/lib/category&brand/models/categoryModel";
 import brandModel from "@/app/lib/category&brand/models/brandModel";
+import categoryModel from "@/app/lib/category&brand/models/categoryModel";
+import Product from "../../../lib/models/product";
 
 // utils
 import connectDb from "@/app/lib/db";
@@ -321,11 +321,10 @@ export const DELETE = async (
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    await Promise.allSettled(
-      (product.imgs as { public_id: string }[]).map(({ public_id }) =>
-        deleteImg(public_id)
-      )
+    const imgsIDs = (product.imgs as { public_id: string }[]).map(
+      ({ public_id }) => public_id
     );
+    await deleteImg(imgsIDs);
 
     return NextResponse.json({ message: "product deleted successfully" });
   } catch (err) {
