@@ -9,20 +9,6 @@ import { SignJWT } from "jose";
 // models
 import User from "@/app/lib/models/user";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin":
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:5173"
-      : "https://ahmed-e-commerce.netlify.app",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Credentials": "true",
-};
-
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
-}
-
 export const POST = async ({ json }: NextRequest) => {
   const { username, password } = await json();
 
