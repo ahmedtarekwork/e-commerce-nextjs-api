@@ -31,7 +31,7 @@ export const POST = async ({ text, headers }: NextRequest) => {
             if (!userId) {
               return NextResponse.json(
                 {
-                  message: `something went wrong while process the payment`,
+                  message: `user id not found`,
                 },
                 { status: 500 }
               );
@@ -81,7 +81,7 @@ export const POST = async ({ text, headers }: NextRequest) => {
 
         if (!userId) {
           return NextResponse.json(
-            { message: `something went wrong while process the payment` },
+            { message: `user id not found` },
             { status: 500 }
           );
         }
