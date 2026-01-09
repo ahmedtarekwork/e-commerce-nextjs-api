@@ -114,7 +114,6 @@ export const PATCH = async (
     };
 
     const reason = [
-      numbersValues("quantity", quantity),
       numbersValues("sold", sold),
       numbersValues("price", price),
     ].find((reason) => reason);
@@ -201,10 +200,13 @@ export const PATCH = async (
       brand,
       color,
       category,
-      quantity: +quantity,
       sold: +sold,
       description,
     } as Record<string, unknown>;
+
+    if (typeof +quantity === "number") {
+      finalProductData.$inc = { quantity: +quantity };
+    }
 
     finalProductData = Object.fromEntries(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
