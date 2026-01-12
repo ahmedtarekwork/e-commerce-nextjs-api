@@ -68,7 +68,11 @@ export const validateToken = async () => {
   return NextResponse.json({ message: "you need to login first" });
 };
 
-export const uploadImg = async (img: File, public_id?: string) => {
+export const uploadImg = async (
+  img: File,
+  public_id?: string,
+  order?: number
+) => {
   const arrayBuffer = await img.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
 
@@ -87,7 +91,9 @@ export const uploadImg = async (img: File, public_id?: string) => {
           return;
         }
 
-        res(resault);
+        if (typeof order === "number" && !isNaN(order))
+          res({ ...resault, order });
+        else res(resault);
       })
       .end(buffer);
   });

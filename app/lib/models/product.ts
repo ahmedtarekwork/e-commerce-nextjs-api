@@ -1,8 +1,8 @@
-import { Schema, model, models, Types } from "mongoose";
+import { model, models, Schema, Types } from "mongoose";
 
 // models
-import categoryModel from "../category&brand/models/categoryModel";
 import brandModel from "../category&brand/models/brandModel";
+import categoryModel from "../category&brand/models/categoryModel";
 
 const productSchema = new Schema(
   {
@@ -55,6 +55,7 @@ const productSchema = new Schema(
         {
           secure_url: String,
           public_id: String,
+          order: Number,
         },
       ],
       require: "must be at least one image for the product",

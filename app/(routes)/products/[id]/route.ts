@@ -76,6 +76,15 @@ export const PATCH = async (
   }
 
   try {
+    const isProductExists = await Product.exists({ _id: id });
+
+    if (!isProductExists) {
+      return NextResponse.json(
+        { message: "product not found" },
+        { status: 404 }
+      );
+    }
+
     const newData = await formData();
 
     if (!Object.keys(Object.fromEntries(newData.entries())).length) {
@@ -204,7 +213,7 @@ export const PATCH = async (
       description,
     } as Record<string, unknown>;
 
-    if (typeof +quantity === "number") {
+    if (typeof +quantity === "number" && !isNaN(+quantity)) {
       finalProductData.$inc = { quantity: +quantity };
     }
 
@@ -213,28 +222,63 @@ export const PATCH = async (
       Object.entries(finalProductData).filter(([_key, value]) => value)
     );
 
+    const imgsPromises: Promise<unknown>[] = [];
+
     if (imgs?.length) {
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      });
+      const oldImgs = imgs.filter((img) => typeof img === "string");
+      const newImgs = imgs.filter((img) => img instanceof File);
 
-      const results = await Promise.allSettled(
-        imgs.map((img) => uploadImg(img))
-      );
+      if (newImgs.length) {
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET,
+        });
 
-      const finalImgs = results.map((imgData) => {
-        if (imgData.status === "fulfilled") {
-          return Object.fromEntries(
-            Object.entries(imgData.value as Record<string, unknown>).filter(
-              ([key]) => ["public_id", "secure_url"].includes(key)
+        const results = await Promise.allSettled(
+          imgs
+            .map(
+              (img, i) => img instanceof File && uploadImg(img, undefined, i)
             )
-          );
-        }
-      });
+            .filter(Boolean)
+        );
 
-      finalProductData["$push"] = { imgs: finalImgs };
+        const finalImgs = results.map((imgData) => {
+          if (imgData.status === "fulfilled") {
+            return Object.fromEntries(
+              Object.entries(imgData.value as Record<string, unknown>).filter(
+                ([key]) => ["public_id", "secure_url", "order"].includes(key)
+              )
+            );
+          }
+        });
+
+        finalProductData["$push"] = { imgs: finalImgs };
+      }
+
+      if (oldImgs.length) {
+        const productImgs = (await Product.findById(id).select("imgs"))?.imgs;
+
+        imgs.forEach((img, i) => {
+          if (typeof img === "string") {
+            if (
+              productImgs.find((img: { public_id: string }) => img.public_id)
+                ?.order !== i
+            ) {
+              imgsPromises.push(
+                Product.updateOne(
+                  { _id: id, "imgs.public_id": img },
+                  {
+                    $set: {
+                      "imgs.$.order": i,
+                    },
+                  }
+                )
+              );
+            }
+          }
+        });
+      }
     }
 
     const product = await Product.findByIdAndUpdate(id, finalProductData, {
@@ -272,7 +316,7 @@ export const PATCH = async (
       );
     }
 
-    await Promise.allSettled(categoryAndBrandPromises);
+    await Promise.allSettled([...categoryAndBrandPromises, ...imgsPromises]);
 
     return NextResponse.json(product);
   } catch (err) {

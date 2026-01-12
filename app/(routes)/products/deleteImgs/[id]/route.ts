@@ -74,6 +74,42 @@ export const DELETE = async (
       select: "name",
     });
 
+    await Product.updateOne({ _id: id }, [
+      {
+        $set: {
+          imgs: {
+            $map: {
+              input: {
+                $sortArray: {
+                  input: "$imgs",
+                  sortBy: { order: 1 },
+                },
+              },
+              as: "img",
+              in: {
+                $mergeObjects: [
+                  "$$img",
+                  {
+                    order: {
+                      $indexOfArray: [
+                        {
+                          $sortArray: {
+                            input: "$imgs",
+                            sortBy: { order: 1 },
+                          },
+                        },
+                        "$$img",
+                      ],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ]);
+
     return NextResponse.json({
       data: product,
       message: `deleted ${results.length} from ${imgsIDs.length} images successfully`,
