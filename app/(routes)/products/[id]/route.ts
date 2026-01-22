@@ -95,6 +95,12 @@ export const PATCH = async (
     }
 
     const imgs = newData.getAll("imgs[]") as File[];
+    const replaceImgs = Object.fromEntries(
+      newData
+        .entries()
+        .filter(([key]) => key.startsWith("replace-"))
+        .map(([key, value]) => [key.replace("replace-", ""), value])
+    );
     const title = newData.get("title") as string;
     const price = newData.get("price") as string;
     const brand = newData.get("brand") as string;
@@ -222,7 +228,38 @@ export const PATCH = async (
       Object.entries(finalProductData).filter(([_key, value]) => value)
     );
 
-    const imgsPromises: Promise<unknown>[] = [];
+    const imgsPromises: (() => Promise<unknown>)[] = [];
+
+    if (Object.keys(replaceImgs).length) {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      const result = (
+        await Promise.allSettled(
+          Object.entries(replaceImgs).map(([public_id, file]) =>
+            uploadImg(file as File, public_id)
+          )
+        )
+      ).filter((result) => result.status === "fulfilled");
+
+      result.forEach(({ value }) => {
+        const { secure_url, public_id } = value as Record<string, unknown>;
+
+        imgsPromises.push(() =>
+          Product.updateOne(
+            { _id: id, "imgs.public_id": public_id },
+            {
+              $set: {
+                "imgs.$.secure_url": secure_url,
+              },
+            }
+          )
+        );
+      });
+    }
 
     if (imgs?.length) {
       const oldImgs = imgs.filter((img) => typeof img === "string");
@@ -265,7 +302,7 @@ export const PATCH = async (
               productImgs.find((img: { public_id: string }) => img.public_id)
                 ?.order !== i
             ) {
-              imgsPromises.push(
+              imgsPromises.push(() =>
                 Product.updateOne(
                   { _id: id, "imgs.public_id": img },
                   {
@@ -298,7 +335,7 @@ export const PATCH = async (
     const categoryAndBrandPromises = [];
 
     if (category) {
-      categoryAndBrandPromises.push(
+      categoryAndBrandPromises.push(() =>
         categoryModel.findByIdAndUpdate(category, {
           $push: {
             products: id,
@@ -307,7 +344,7 @@ export const PATCH = async (
       );
     }
     if (brand) {
-      categoryAndBrandPromises.push(
+      categoryAndBrandPromises.push(() =>
         brandModel.findByIdAndUpdate(brand, {
           $push: {
             products: id,
@@ -316,7 +353,10 @@ export const PATCH = async (
       );
     }
 
-    await Promise.allSettled([...categoryAndBrandPromises, ...imgsPromises]);
+    await Promise.allSettled([
+      ...categoryAndBrandPromises.map((promise) => promise()),
+      ...imgsPromises.map((promise) => promise()),
+    ]);
 
     return NextResponse.json(product);
   } catch (err) {
