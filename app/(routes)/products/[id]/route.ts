@@ -86,8 +86,9 @@ export const PATCH = async (
     }
 
     const newData = await formData();
+    const newDataEntriesArr = [...newData.entries()];
 
-    if (!Object.keys(Object.fromEntries(newData.entries())).length) {
+    if (!Object.keys(Object.fromEntries(newDataEntriesArr)).length) {
       return NextResponse.json(
         { message: "you must provide new data" },
         { status: 400 }
@@ -96,8 +97,7 @@ export const PATCH = async (
 
     const imgs = newData.getAll("imgs[]") as File[];
     const replaceImgs = Object.fromEntries(
-      newData
-        .entries()
+      newDataEntriesArr
         .filter(([key]) => key.startsWith("replace-"))
         .map(([key, value]) => [key.replace("replace-", ""), value])
     );
