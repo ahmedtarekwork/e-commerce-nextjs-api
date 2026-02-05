@@ -3,8 +3,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // models
-import User from "@/app/lib/models/user";
 import Order from "@/app/lib/models/order";
+import User from "@/app/lib/models/user";
 
 // utils
 import { extractProducts, validateToken } from "@/app/lib/utils";

@@ -29,8 +29,17 @@ export const extractProducts = (orderData: Record<string, unknown>) => {
     removedProductsCount,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     products: filterd.map(({ _doc: product }: any) => {
+      const mainPrd =
+        "_doc" in product.productId
+          ? product.productId._doc
+          : product.productId;
+
+      const quantity = mainPrd.quantity;
+      delete mainPrd.quantity;
+
       return {
-        ...product.productId._doc,
+        ...mainPrd,
+        count: quantity,
         wantedQty: product.wantedQty,
       };
     }),
