@@ -1,5 +1,6 @@
 // nextjs
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 // models
 import User from "@/app/lib/models/user";
@@ -14,12 +15,12 @@ type Params = {
 
 export const GET = async (
   _: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "user id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -34,7 +35,7 @@ export const GET = async (
       if (!user) {
         return NextResponse.json(
           { message: "user with given id not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -47,25 +48,25 @@ export const GET = async (
 
     return NextResponse.json(
       { message: "you don't have access to this data" },
-      { status: 401 }
+      { status: 401 },
     );
   } catch (err) {
     console.log(err);
     return NextResponse.json(
       { message: "something went wrong while fetching the user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 export const DELETE = async (
   _: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "user id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -76,7 +77,7 @@ export const DELETE = async (
   if (isAuth?.role === "user" && id !== isAuth._id) {
     return NextResponse.json(
       { message: "you don't have access to this data" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -86,9 +87,11 @@ export const DELETE = async (
     if (!user) {
       return NextResponse.json(
         { message: "user with given id not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
+
+    cookies().delete("ahmed-e-commerce-user-token");
 
     return NextResponse.json({ message: "user deleted successfully" });
   } catch (err) {
@@ -96,19 +99,19 @@ export const DELETE = async (
 
     return NextResponse.json(
       { message: "something went wrong while deleting the user" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 export const PATCH = async (
   { json }: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "user id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -119,7 +122,7 @@ export const PATCH = async (
   if (id !== isAuth?._id) {
     return NextResponse.json(
       { message: "you don't have access to this data" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -130,14 +133,14 @@ export const PATCH = async (
       if (!isEmail(newData.email)) {
         return NextResponse.json(
           { message: "please insert a valid email" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       if (await User.exists({ email: newData.email })) {
         return NextResponse.json(
           { message: "this email is already taken" },
-          { status: 409 }
+          { status: 409 },
         );
       }
     }
@@ -146,7 +149,7 @@ export const PATCH = async (
       if (await User.exists({ username: newData.username })) {
         return NextResponse.json(
           { message: "this username is aleady taken" },
-          { status: 409 }
+          { status: 409 },
         );
       }
     }
@@ -158,7 +161,7 @@ export const PATCH = async (
     if (!user) {
       return NextResponse.json(
         { message: "user with given id not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -168,7 +171,7 @@ export const PATCH = async (
 
     return NextResponse.json(
       { message: "something went wrong while updating your data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

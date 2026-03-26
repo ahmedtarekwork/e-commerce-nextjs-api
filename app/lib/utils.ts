@@ -54,7 +54,7 @@ export const validateToken = async () => {
   if (token?.value) {
     const { payload } = await jwtVerify(
       token.value,
-      new TextEncoder().encode(process.env.JWT_SECRET!)
+      new TextEncoder().encode(process.env.JWT_SECRET!),
     );
 
     try {
@@ -69,7 +69,7 @@ export const validateToken = async () => {
 
       return NextResponse.json(
         { message: "something went wrong while checking your authority" },
-        { status: 500 }
+        { status: 500 },
       );
     }
   }
@@ -80,7 +80,7 @@ export const validateToken = async () => {
 export const uploadImg = async (
   img: File,
   public_id?: string,
-  order?: number
+  order?: number,
 ) => {
   const arrayBuffer = await img.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
