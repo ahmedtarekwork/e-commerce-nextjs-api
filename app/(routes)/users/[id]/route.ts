@@ -91,7 +91,7 @@ export const DELETE = async (
       );
     }
 
-    cookies().delete("ahmed-e-commerce-user-token");
+    if (id === isAuth._id) cookies().delete("ahmed-e-commerce-user-token");
 
     return NextResponse.json({ message: "user deleted successfully" });
   } catch (err) {
