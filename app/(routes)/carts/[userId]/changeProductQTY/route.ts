@@ -11,64 +11,22 @@ import { Types } from "mongoose";
 
 type Params = { userId: string };
 
-export const GET = async (
-  _: NextRequest,
-  { params: { userId } }: { params: Params },
+const validateCartModification = (
+  productData: Record<"productId" | "newWantedQTY" | "oldQTY", string>,
 ) => {
-  if (!userId) {
-    return NextResponse.json(
-      { message: "user id must be provided" },
-      { status: 400 },
-    );
-  }
-
-  const isAuth = await validateToken();
-
-  if (isAuth instanceof NextResponse) return isAuth;
-
-  if (isAuth?.role !== "admin" && userId !== isAuth?._id) {
-    return NextResponse.json(
-      { message: "you don't have Authority to get this cart" },
-      { status: 401 },
-    );
-  }
-
-  try {
-    const cart = await Cart.findOne({ orderby: userId }).populate({
-      path: "products.productId",
-      populate: {
-        path: "category brand",
-        select: "name",
-      },
-    });
-
-    if (!cart) {
-      return NextResponse.json({
-        orderby: userId,
-        products: [],
-        totalItemsLength: 0,
-      });
-    }
-
-    return NextResponse.json({
-      ...cart._doc,
-      products: extractProducts(cart._doc).products,
-    });
-  } catch (err) {
-    console.log(err);
-
-    return NextResponse.json(
-      {
-        message: `something went wrong while fetching ${
-          isAuth?._id !== userId ? "user" : "your"
-        } cart`,
-      },
-      { status: 500 },
-    );
-  }
+  return ["productId", "newWantedQTY", "oldQTY"]
+    .map((key) => {
+      if (!productData[key as keyof typeof productData]) {
+        return NextResponse.json(
+          { message: `${key} must be provided` },
+          { status: 400 },
+        );
+      }
+    })
+    .filter(Boolean)[0];
 };
 
-export const POST = async (
+export const PATCH = async (
   { json }: NextRequest,
   { params: { userId } }: { params: Params },
 ) => {
@@ -93,12 +51,8 @@ export const POST = async (
   try {
     const productData = await json();
 
-    if (!("productId" in productData)) {
-      return NextResponse.json(
-        { message: "product id must be provided" },
-        { status: 400 },
-      );
-    }
+    const error = validateCartModification(productData);
+    if (error instanceof NextResponse) return error;
 
     if (!Types.ObjectId.isValid(productData.productId)) {
       return NextResponse.json(
@@ -127,34 +81,15 @@ export const POST = async (
       );
     }
 
-    if (!("wantedQty" in productData)) {
-      return NextResponse.json(
-        { message: "quantity must be provided" },
-        { status: 400 },
-      );
-    }
-
     const isCartExists = await Cart.findOne({ orderby: userId }).select(
       "products",
     );
 
     if (!isCartExists) {
-      await Cart.create({
-        orderby: userId,
-        products: [productData],
-        totalItemsLength: productData.wantedQty,
-      });
-
-      const product = await Product.findById(productData.productId).populate({
-        path: "category brand",
-        select: "name",
-      });
-
-      return NextResponse.json({
-        orderby: userId,
-        products: [{ ...product._doc, wantedQty: productData.wantedQty }],
-        totalItemsLength: productData.wantedQty,
-      });
+      return NextResponse.json(
+        { message: "you don't have items in your cart" },
+        { status: 404 },
+      );
     }
 
     const isProductExist = isCartExists.products.find(
@@ -162,21 +97,22 @@ export const POST = async (
         product.productId?.toString() === productData.productId,
     );
 
-    if (isProductExist) {
+    if (!isProductExist) {
       return NextResponse.json(
-        {
-          message:
-            "product is already in your cart, you can change its quantity from cart page",
-        },
-        { status: 409 },
+        { message: "this product isn't in your cart" },
+        { status: 404 },
       );
     }
 
     const cart = await Cart.findOneAndUpdate(
-      { orderby: userId },
+      { "products.productId": productData.productId },
       {
-        $push: { products: productData },
-        $inc: { totalItemsLength: productData.wantedQty },
+        $set: {
+          "products.$.wantedQty": productData.newWantedQTY,
+        },
+        $inc: {
+          totalItemsLength: productData.newWantedQTY - productData.oldQTY,
+        },
       },
       { new: true },
     ).populate({

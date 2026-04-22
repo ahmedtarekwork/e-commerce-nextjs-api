@@ -5,17 +5,18 @@ import { type NextRequest, NextResponse } from "next/server";
 import Product from "../../lib/models/product";
 import categoryModel from "@/app/lib/category&brand/models/categoryModel";
 import brandModel from "@/app/lib/category&brand/models/brandModel";
+import Cart from "@/app/lib/models/cart";
 
 // utils
 import { uploadImg, validateToken } from "@/app/lib/utils";
-import connectDb from "@/app/lib/db";
 
 // cloudinary
 import { v2 as cloudinary } from "cloudinary";
+import { Types } from "mongoose";
 
 export const GET = async ({ nextUrl }: NextRequest) => {
   try {
-    await connectDb();
+    const currentUserId = (await validateToken())?._id;
 
     const {
       bestSell,
@@ -59,7 +60,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
             message:
               "can't get products with provided categories at the momment",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -70,17 +71,17 @@ export const GET = async ({ nextUrl }: NextRequest) => {
         const searchCat = cats?.find((c: string) =>
           c.toLowerCase().toLowerCase() === category.toLowerCase().toLowerCase()
             ? c
-            : undefined
+            : undefined,
         );
 
         if (searchCat) {
           searchQueries.category = catsWithId.find(
-            (cat) => searchCat === cat.name
+            (cat) => searchCat === cat.name,
           )._id;
         } else {
           return NextResponse.json(
             { message: `There is no Category with name of ${category}` },
-            { status: 400 }
+            { status: 400 },
           );
         }
       } else if (categories) {
@@ -88,7 +89,8 @@ export const GET = async ({ nextUrl }: NextRequest) => {
 
         const invalidCats = formatedCategories.filter((c) => {
           return cats.every(
-            (cat: string) => cat.toLowerCase().trim() !== c.toLowerCase().trim()
+            (cat: string) =>
+              cat.toLowerCase().trim() !== c.toLowerCase().trim(),
           );
         });
 
@@ -97,13 +99,13 @@ export const GET = async ({ nextUrl }: NextRequest) => {
             {
               message: `This categories not found => ${invalidCats.join(", ")}`,
             },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
         const searchCats = cats.filter((c: string) => {
           return formatedCategories.some(
-            (cat) => cat.toLowerCase().trim() === c.toLowerCase().trim()
+            (cat) => cat.toLowerCase().trim() === c.toLowerCase().trim(),
           );
         });
 
@@ -124,7 +126,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
             message:
               "can't get products with provided categories at the momment",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -136,7 +138,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
       const invalidBrands = formatedBrands.filter((b) => {
         return availableBrands.every(
           (brand: string) =>
-            brand.toLowerCase().trim() !== b.toLowerCase().trim()
+            brand.toLowerCase().trim() !== b.toLowerCase().trim(),
         );
       });
 
@@ -145,13 +147,13 @@ export const GET = async ({ nextUrl }: NextRequest) => {
           {
             message: `This brands not available => ${invalidBrands.join(", ")}`,
           },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
       const searchBrands = availableBrands.filter((b: string) => {
         return formatedBrands.some(
-          (brand) => brand.toLowerCase().trim() === b.toLowerCase().trim()
+          (brand) => brand.toLowerCase().trim() === b.toLowerCase().trim(),
         );
       });
 
@@ -202,7 +204,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
           {
             message: "something went wrong while trying to filter products",
           },
-          { status: 400 }
+          { status: 500 },
         );
       }
 
@@ -215,9 +217,9 @@ export const GET = async ({ nextUrl }: NextRequest) => {
 
       return NextResponse.json(
         {
-          message: `can't get products at the moment`,
+          message: "can't get products at the moment",
         },
-        { status: 400 }
+        { status: 500 },
       );
     }
 
@@ -244,10 +246,29 @@ export const GET = async ({ nextUrl }: NextRequest) => {
       additionalResponseData.pagesCount = Math.ceil(+pagesCount);
     }
 
-    const products = await promise.populate({
+    let products = await promise.populate({
       path: "category brand",
       select: "name",
     });
+
+    if (currentUserId) {
+      const cart = await Cart.findOne({ orderby: currentUserId }).select(
+        "products.productId",
+      );
+
+      if (cart) {
+        const cartProductIds = new Set(
+          (cart.products || []).map((p: { productId: Types.ObjectId }) =>
+            p.productId.toString(),
+          ) || [],
+        );
+
+        products = products.map((product) => ({
+          ...product.toObject(),
+          existsInCart: cartProductIds.has(product._id.toString()),
+        }));
+      }
+    }
 
     return NextResponse.json({ products, ...additionalResponseData });
   } catch (err) {
@@ -255,7 +276,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
 
     return NextResponse.json(
       { message: "something went wrong while fetching products" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
@@ -268,7 +289,7 @@ export const POST = async ({ formData }: NextRequest) => {
   if (isAuth?.role !== "admin") {
     return NextResponse.json(
       { message: "you don't have Authority to add new product" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -289,14 +310,14 @@ export const POST = async ({ formData }: NextRequest) => {
         if (isNaN(+value!)) {
           return NextResponse.json(
             { message: `${key} must be a nubmer` },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
         if ((value as unknown as number) < 0) {
           return NextResponse.json(
             { message: `${key} mustn't be less than zero` },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -305,7 +326,7 @@ export const POST = async ({ formData }: NextRequest) => {
 
       return NextResponse.json(
         { message: `${key} is required` },
-        { status: 400 }
+        { status: 400 },
       );
     };
 
@@ -319,7 +340,7 @@ export const POST = async ({ formData }: NextRequest) => {
     if (!imgs || !imgs.length) {
       return NextResponse.json(
         { message: "product must have at least one image" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -330,7 +351,7 @@ export const POST = async ({ formData }: NextRequest) => {
     });
 
     const results = await Promise.allSettled(
-      imgs.map((img) => uploadImg(img as File))
+      imgs.map((img) => uploadImg(img as File)),
     );
 
     const finalData = results
@@ -338,8 +359,8 @@ export const POST = async ({ formData }: NextRequest) => {
         if (imgData.status === "fulfilled") {
           return Object.fromEntries(
             Object.entries(imgData.value as Record<string, unknown>).filter(
-              ([key]) => ["public_id", "secure_url"].includes(key)
-            )
+              ([key]) => ["public_id", "secure_url"].includes(key),
+            ),
           );
         }
       })
@@ -391,7 +412,7 @@ export const POST = async ({ formData }: NextRequest) => {
 
     return NextResponse.json(
       { message: message || "something went wrong while creating the product" },
-      { status }
+      { status },
     );
   }
 };

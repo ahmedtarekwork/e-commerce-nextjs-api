@@ -13,12 +13,12 @@ type Params = { userId: string };
 
 export const DELETE = async (
   { json }: NextRequest,
-  { params: { userId } }: { params: Params }
+  { params: { userId } }: { params: Params },
 ) => {
   if (!userId) {
     return NextResponse.json(
       { message: "user id must be provided" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -30,18 +30,18 @@ export const DELETE = async (
     if (isAuth?.role !== "admin" && userId !== isAuth?._id) {
       return NextResponse.json(
         { message: "you don't have Authority to get this cart" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const isCartExists = await Cart.findOne({ orderby: userId }).select(
-      "products"
+      "products",
     );
 
     if (!isCartExists) {
       return NextResponse.json(
         { message: "you don't have items in your cart to remove" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,14 +50,14 @@ export const DELETE = async (
     if (!("productId" in productData)) {
       return NextResponse.json(
         { message: "product id is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!Types.ObjectId.isValid(productData.productId)) {
       return NextResponse.json(
         { message: "please insert a valid product id" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -69,7 +69,7 @@ export const DELETE = async (
       if (!isProductExist) {
         return NextResponse.json(
           { message: "this product not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
     } catch (err) {
@@ -77,25 +77,29 @@ export const DELETE = async (
 
       return NextResponse.json(
         { message: "something went wrong while modifying your cart" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    const isProductExist = isCartExists.products.some(
+    const isProductExist = isCartExists.products.find(
       (product: { productId?: string }) =>
-        product.productId?.toString() === productData.productId
+        product.productId?.toString() === productData.productId,
     );
 
     if (!isProductExist) {
       return NextResponse.json(
         { message: "this product not in your cart" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (isCartExists.products.length === 1 && isProductExist) {
       await Cart.deleteOne({ _id: isCartExists._id });
-      return NextResponse.json({ orderby: userId, products: [] });
+      return NextResponse.json({
+        orderby: userId,
+        products: [],
+        totalItemsLength: 0,
+      });
     }
 
     const cart = await Cart.findOneAndUpdate(
@@ -104,8 +108,9 @@ export const DELETE = async (
         $pull: {
           products: { productId: productData.productId },
         },
+        $inc: { totalItemsLength: -isProductExist.wantedQty },
       },
-      { new: true }
+      { new: true },
     ).populate({
       path: "products.productId",
       populate: {
@@ -123,7 +128,7 @@ export const DELETE = async (
 
     return NextResponse.json(
       { message: "something went wronge while removeing product from cart" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

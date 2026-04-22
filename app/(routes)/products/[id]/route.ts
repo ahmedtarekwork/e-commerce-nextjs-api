@@ -5,9 +5,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import brandModel from "@/app/lib/category&brand/models/brandModel";
 import categoryModel from "@/app/lib/category&brand/models/categoryModel";
 import Product from "../../../lib/models/product";
+import Cart from "@/app/lib/models/cart";
 
 // utils
-import connectDb from "@/app/lib/db";
 import { deleteImg, uploadImg, validateToken } from "@/app/lib/utils";
 import { Types } from "mongoose";
 
@@ -20,16 +20,16 @@ type Params = {
 
 export const GET = async (
   _: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "product id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  await connectDb();
+  const currentUserId = (await validateToken())?._id;
 
   try {
     const product = await Product.findById(id).populate({
@@ -40,27 +40,37 @@ export const GET = async (
     if (!product) {
       return NextResponse.json(
         { message: "product with given id not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-    return NextResponse.json(product);
+    let existsInCart = false;
+
+    if (currentUserId) {
+      const isInCart = await Cart.exists({
+        orderby: currentUserId,
+        "products.productId": id,
+      });
+
+      existsInCart = !!isInCart;
+    }
+    return NextResponse.json({ ...product._doc, existsInCart: existsInCart });
   } catch (err) {
     return NextResponse.json(
       { message: "something went wrong while fetching the product" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 export const PATCH = async (
   { formData }: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "product id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -71,7 +81,7 @@ export const PATCH = async (
   if (isAuth?.role !== "admin") {
     return NextResponse.json(
       { message: "you don't have authorization to edit products" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -81,7 +91,7 @@ export const PATCH = async (
     if (!isProductExists) {
       return NextResponse.json(
         { message: "product not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -91,7 +101,7 @@ export const PATCH = async (
     if (!Object.keys(Object.fromEntries(newDataEntriesArr)).length) {
       return NextResponse.json(
         { message: "you must provide new data" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -99,7 +109,7 @@ export const PATCH = async (
     const replaceImgs = Object.fromEntries(
       newDataEntriesArr
         .filter(([key]) => key.startsWith("replace-"))
-        .map(([key, value]) => [key.replace("replace-", ""), value])
+        .map(([key, value]) => [key.replace("replace-", ""), value]),
     );
     const title = newData.get("title") as string;
     const price = newData.get("price") as string;
@@ -115,14 +125,14 @@ export const PATCH = async (
         if (isNaN(+value!)) {
           return NextResponse.json(
             { message: `${key} must be a nubmer` },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
         if ((value as unknown as number) < 0) {
           return NextResponse.json(
             { message: `${key} mustn't be less than zero` },
-            { status: 400 }
+            { status: 400 },
           );
         }
       }
@@ -141,7 +151,7 @@ export const PATCH = async (
       if (!Types.ObjectId.isValid(category)) {
         return NextResponse.json(
           { message: "category id is invalid" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -152,7 +162,7 @@ export const PATCH = async (
       if (!Types.ObjectId.isValid(brand)) {
         return NextResponse.json(
           { message: "brand not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -168,21 +178,21 @@ export const PATCH = async (
 
     const categoryOrBrandError = (
       type: "category" | "brand",
-      model: typeof promise_category | typeof promise_brand | []
+      model: typeof promise_category | typeof promise_brand | [],
     ) => {
       if (Array.isArray(model)) return;
 
       if (model?.status === "rejected") {
         return NextResponse.json(
           { message: "something went wrong while updating product info" },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
       if (model?.status === "fulfilled" && !model.value) {
         return NextResponse.json(
           { message: `${type} not found` },
-          { status: 404 }
+          { status: 404 },
         );
       }
     };
@@ -194,7 +204,7 @@ export const PATCH = async (
     if (promise_title.status === "rejected") {
       return NextResponse.json(
         { message: "something went wrong while updating product info" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -205,7 +215,7 @@ export const PATCH = async (
     ) {
       return NextResponse.json(
         { message: "title is already taken" },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -225,7 +235,7 @@ export const PATCH = async (
 
     finalProductData = Object.fromEntries(
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      Object.entries(finalProductData).filter(([_key, value]) => value)
+      Object.entries(finalProductData).filter(([_key, value]) => value),
     );
 
     const imgsPromises: (() => Promise<unknown>)[] = [];
@@ -240,8 +250,8 @@ export const PATCH = async (
       const result = (
         await Promise.allSettled(
           Object.entries(replaceImgs).map(([public_id, file]) =>
-            uploadImg(file as File, public_id)
-          )
+            uploadImg(file as File, public_id),
+          ),
         )
       ).filter((result) => result.status === "fulfilled");
 
@@ -255,8 +265,8 @@ export const PATCH = async (
               $set: {
                 "imgs.$.secure_url": secure_url,
               },
-            }
-          )
+            },
+          ),
         );
       });
     }
@@ -275,17 +285,17 @@ export const PATCH = async (
         const results = await Promise.allSettled(
           imgs
             .map(
-              (img, i) => img instanceof File && uploadImg(img, undefined, i)
+              (img, i) => img instanceof File && uploadImg(img, undefined, i),
             )
-            .filter(Boolean)
+            .filter(Boolean),
         );
 
         const finalImgs = results.map((imgData) => {
           if (imgData.status === "fulfilled") {
             return Object.fromEntries(
               Object.entries(imgData.value as Record<string, unknown>).filter(
-                ([key]) => ["public_id", "secure_url", "order"].includes(key)
-              )
+                ([key]) => ["public_id", "secure_url", "order"].includes(key),
+              ),
             );
           }
         });
@@ -309,8 +319,8 @@ export const PATCH = async (
                     $set: {
                       "imgs.$.order": i,
                     },
-                  }
-                )
+                  },
+                ),
               );
             }
           }
@@ -328,7 +338,7 @@ export const PATCH = async (
     if (!product) {
       return NextResponse.json(
         { message: "product with given id not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -340,7 +350,7 @@ export const PATCH = async (
           $push: {
             products: id,
           },
-        })
+        }),
       );
     }
     if (brand) {
@@ -349,7 +359,7 @@ export const PATCH = async (
           $push: {
             products: id,
           },
-        })
+        }),
       );
     }
 
@@ -364,19 +374,19 @@ export const PATCH = async (
 
     return NextResponse.json(
       { message: "something went wrong while updating the product" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
 
 export const DELETE = async (
   _: NextRequest,
-  { params: { id } }: { params: Params }
+  { params: { id } }: { params: Params },
 ) => {
   if (!id) {
     return NextResponse.json(
       { message: "product id is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -387,7 +397,7 @@ export const DELETE = async (
   if (isAuth?.role !== "admin") {
     return NextResponse.json(
       { message: "you don't have authorization to edit products" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
@@ -397,7 +407,7 @@ export const DELETE = async (
     if (!product) {
       return NextResponse.json(
         { message: "product with given id not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -408,7 +418,7 @@ export const DELETE = async (
     });
 
     const imgsIDs = (product.imgs as { public_id: string }[]).map(
-      ({ public_id }) => public_id
+      ({ public_id }) => public_id,
     );
     await deleteImg(imgsIDs);
 
@@ -416,7 +426,7 @@ export const DELETE = async (
   } catch (err) {
     return NextResponse.json(
       { message: "something went wrong while deleting the product" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };

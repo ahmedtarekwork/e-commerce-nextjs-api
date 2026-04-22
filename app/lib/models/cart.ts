@@ -12,12 +12,14 @@ const cartSchema = new Schema(
       },
     ],
 
+    totalItemsLength: { type: Number, default: 0 },
+
     orderby: {
       type: Schema.Types.ObjectId,
       ref: "Users",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default models["Carts"] ?? model("Carts", cartSchema);

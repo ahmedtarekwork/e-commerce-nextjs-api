@@ -30,7 +30,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
       if (dataArr.some((promise) => promise.status === "rejected")) {
         return NextResponse.json(
           { message: "something went wrong while fetching users" },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -48,7 +48,7 @@ export const GET = async ({ nextUrl }: NextRequest) => {
         finalResponseData = finalResponseData.map((user) => {
           const userOrders = orders.filter(
             ({ _doc: order }) =>
-              user._id.toString() === order.orderby.toString()
+              user._id.toString() === order.orderby.toString(),
           );
 
           return {
@@ -69,13 +69,13 @@ export const GET = async ({ nextUrl }: NextRequest) => {
 
     return NextResponse.json(
       { message: "you don't have access to this data" },
-      { status: 401 }
+      { status: 401 },
     );
   } catch (err) {
     console.log(err);
     return NextResponse.json(
       { message: "something went wrong while fetching the users" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 };
